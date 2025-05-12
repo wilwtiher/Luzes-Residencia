@@ -21,6 +21,7 @@
 #include "lib/ssd1306.h"
 #include "lib/font.h"
 #include "ws2812.pio.h"
+#include "pico/time.h"
 
 #include "lwip/pbuf.h"           // Lightweight IP stack - manipulação de buffers de pacotes de rede
 #include "lwip/tcp.h"            // Lightweight IP stack - fornece funções e estruturas para trabalhar com o protocolo TCP
@@ -44,6 +45,9 @@
 int led_r = 5; // Intensidade do vermelho
 int led_g = 5; // Intensidade do verde
 int led_b = 5; // Intensidade do azul
+int sled_r = 5; // Intensidade do vermelho salvar
+int sled_g = 5; // Intensidade do verde salvar
+int sled_b = 5; // Intensidade do azul salvar
 // Pinos
 // LEDS
 #define led_RED 13   // Red=13, Blue=12, Green=11
@@ -68,9 +72,11 @@ bool LEDS = true;
 bool Verde = false;
 bool cor = true;
 bool alarme = false;
+bool ligado = true;
 static volatile int8_t contador = 0; // Variável para qual frame será chamado da matriz de LEDs
 int16_t displayX = 0;
 int16_t displayY = 0;
+absolute_time_t last_request_time;
 // Variável para os frames da matriz de LEDs
 bool led_buffer[4][NUM_PIXELS] = {
     {
@@ -258,37 +264,51 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
 
 // Tratamento do request do usuário - digite aqui
 void user_request(char **request){
-    if (strstr(*request, "GET /blue_on") != NULL)
-    {
-        gpio_put(led_BLUE, 1);
+    absolute_time_t now = get_absolute_time();
+    int elapsed = absolute_time_diff_us(last_request_time, now) / 1000; // ms
+    if (elapsed < 200) {
+        // Ignora requisição se for muito cedo
+        printf("Request ignorado: intervalo de %d ms insuficiente\n", elapsed);
+        return;
     }
-    else if (strstr(*request, "GET /blue_off") != NULL)
-    {
-        gpio_put(led_BLUE, 0);
+    last_request_time = now;
+    if (strstr(*request, "GET /toggle") != NULL) {
+        // Tratamento do botão ligar/desligar
+        printf("Requisição: toggle\n");
+        if(ligado){
+            led_r = 0;
+            led_b = 0;
+            led_g = 0;
+        }else{
+            led_r = sled_r;
+            led_g = sled_g;
+            led_b = sled_b;
+        }
+        ligado = !ligado;
+        set_one_led(led_r, led_g, led_b);
     }
-    else if (strstr(*request, "GET /green_on") != NULL)
-    {
-        gpio_put(led_GREEN, 1);
+    else if (strstr(*request, "GET /slider?valor=") != NULL) {
+        // Extrai o valor do slider da URL
+        char *valorStr = strstr(*request, "/slider?valor=") + strlen("/slider?valor=");
+        int valor = atoi(valorStr);
+        printf("Valor do slider: %d\n", valor);
+        // Aqui você pode adicionar lógica de controle com o valor
+        sled_r = valor;
+        sled_g = valor;
+        sled_b = valor;
+        led_r = sled_r;
+        led_g = sled_g;
+        led_b = sled_b;
+        set_one_led(led_r, led_g, led_b);
     }
-    else if (strstr(*request, "GET /green_off") != NULL)
-    {
-        gpio_put(led_GREEN, 0);
-    }
-    else if (strstr(*request, "GET /red_on") != NULL)
-    {
-        gpio_put(led_RED, 1);
-    }
-    else if (strstr(*request, "GET /red_off") != NULL)
-    {
-        gpio_put(led_RED, 0);
-    }
-    else if (strstr(*request, "GET /on") != NULL)
-    {
-        cyw43_arch_gpio_put(LED_PIN, 1);
-    }
-    else if (strstr(*request, "GET /off") != NULL)
-    {
-        cyw43_arch_gpio_put(LED_PIN, 0);
+    else if (strstr(*request, "GET /seletor?valor=") != NULL) {
+        // Extrai o valor do seletor da URL
+        char *valorStr = strstr(*request, "/seletor?valor=") + strlen("/seletor?valor=");
+        int valor = atoi(valorStr);
+        printf("Valor do seletor: %d\n", valor);
+        // Aqui você pode tratar o valor selecionado
+        contador = valor;
+        set_one_led(led_r, led_g, led_b);
     }
 };
 
@@ -316,30 +336,44 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     char html[1024];
 
     // Instruções html do webserver
-    snprintf(html, sizeof(html), // Formatar uma string e armazená-la em um buffer de caracteres
-             "HTTP/1.1 200 OK\r\n"
-             "Content-Type: text/html\r\n"
-             "\r\n"
-             "<!DOCTYPE html>\n"
-             "<html>\n"
-             "<head>\n"
-             "<title> Embarcatech - LED Control </title>\n"
-             "<style>\n"
-             "body { background-color: #b5e5fb; font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }\n"
-             "h1 { font-size: 64px; margin-bottom: 30px; }\n"
-             "button { background-color: LightGray; font-size: 36px; margin: 10px; padding: 20px 40px; border-radius: 10px; }\n"
-             "</style>\n"
-             "</head>\n"
-             "<body>\n"
-             "<h1>Embarcatech: LED Control</h1>\n"
-             "<form action=\"./blue_on\"><button>Ligar Azul</button></form>\n"
-             "<form action=\"./blue_off\"><button>Desligar Azul</button></form>\n"
-             "<form action=\"./green_on\"><button>Ligar Verde</button></form>\n"
-             "<form action=\"./green_off\"><button>Desligar Verde</button></form>\n"
-             "<form action=\"./red_on\"><button>Ligar Vermelho</button></form>\n"
-             "<form action=\"./red_off\"><button>Desligar Vermelho</button></form>\n"
-             "</body>\n"
-             "</html>\n");
+snprintf(html, sizeof(html),
+         "HTTP/1.1 200 OK\r\n"
+         "Content-Type: text/html\r\n"
+         "\r\n"
+         "<!DOCTYPE html>\n"
+         "<html>\n"
+         "<head>\n"
+         "<title>CONTROLE INTELIGENTE DE LUZ</title>\n"
+         "<style>\n"
+         "body { background-color: #b5e5fb; font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }\n"
+         "h1 { font-size: 48px; margin-bottom: 30px; }\n"
+         "input[type=range] { width: 80%%; margin: 20px 0; }\n"
+         "select, button { font-size: 24px; padding: 10px 20px; margin: 10px; border-radius: 8px; }\n"
+         "</style>\n"
+         "<script>\n"
+         "function enviarSlider(valor) {\n"
+         "  fetch('/slider?valor=' + valor);\n"
+         "}\n"
+         "function enviarSeletor(valor) {\n"
+         "  fetch('/seletor?valor=' + valor);\n"
+         "}\n"
+         "</script>\n"
+         "</head>\n"
+         "<body>\n"
+         "<h1>CONTROLE INTELIGENTE DE LUZ</h1>\n"
+         "<input type=\"range\" min=\"0\" max=\"255\" oninput=\"enviarSlider(this.value)\" />\n"
+         "<br>\n"
+         "<select onchange=\"enviarSeletor(this.value)\">\n"
+         "  <option value=\"0\">0</option>\n"
+         "  <option value=\"1\">1</option>\n"
+         "  <option value=\"2\">2</option>\n"
+         "  <option value=\"3\">3</option>\n"
+         "</select>\n"
+         "<br>\n"
+         "<form action=\"/toggle\"><button>Ligar/Desligar</button></form>\n"
+         "</body>\n"
+         "</html>\n");
+
 
     // Escreve dados para envio (mas não os envia imediatamente).
     tcp_write(tpcb, html, strlen(html), TCP_WRITE_FLAG_COPY);
