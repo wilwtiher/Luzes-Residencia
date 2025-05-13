@@ -2,17 +2,17 @@
  * AULA IoT - Embarcatech - Ricardo Prates - 004 - Webserver Raspberry Pi Pico w - wlan
  *
  * Material de suporte
- * 
- * https://www.raspberrypi.com/documentation/pico-sdk/networking.html#group_pico_cyw43_arch_1ga33cca1c95fc0d7512e7fef4a59fd7475 
+ *
+ * https://www.raspberrypi.com/documentation/pico-sdk/networking.html#group_pico_cyw43_arch_1ga33cca1c95fc0d7512e7fef4a59fd7475
  */
 
-#include <stdio.h>               // Biblioteca padrão para entrada e saída
-#include <string.h>              // Biblioteca manipular strings
-#include <stdlib.h>              // funções para realizar várias operações, incluindo alocação de memória dinâmica (malloc)
+#include <stdio.h>  // Biblioteca padrão para entrada e saída
+#include <string.h> // Biblioteca manipular strings
+#include <stdlib.h> // funções para realizar várias operações, incluindo alocação de memória dinâmica (malloc)
 
-#include "pico/stdlib.h"         // Biblioteca da Raspberry Pi Pico para funções padrão (GPIO, temporização, etc.)
-#include "hardware/adc.h"        // Biblioteca da Raspberry Pi Pico para manipulação do conversor ADC
-#include "pico/cyw43_arch.h"     // Biblioteca para arquitetura Wi-Fi da Pico com CYW43  
+#include "pico/stdlib.h"     // Biblioteca da Raspberry Pi Pico para funções padrão (GPIO, temporização, etc.)
+#include "hardware/adc.h"    // Biblioteca da Raspberry Pi Pico para manipulação do conversor ADC
+#include "pico/cyw43_arch.h" // Biblioteca para arquitetura Wi-Fi da Pico com CYW43
 #include "hardware/i2c.h"
 #include "hardware/pwm.h"
 #include "hardware/clocks.h"
@@ -23,9 +23,9 @@
 #include "ws2812.pio.h"
 #include "pico/time.h"
 
-#include "lwip/pbuf.h"           // Lightweight IP stack - manipulação de buffers de pacotes de rede
-#include "lwip/tcp.h"            // Lightweight IP stack - fornece funções e estruturas para trabalhar com o protocolo TCP
-#include "lwip/netif.h"          // Lightweight IP stack - fornece funções e estruturas para trabalhar com interfaces de rede (netif)
+#include "lwip/pbuf.h"  // Lightweight IP stack - manipulação de buffers de pacotes de rede
+#include "lwip/tcp.h"   // Lightweight IP stack - fornece funções e estruturas para trabalhar com o protocolo TCP
+#include "lwip/netif.h" // Lightweight IP stack - fornece funções e estruturas para trabalhar com interfaces de rede (netif)
 
 // Credenciais WIFI - Tome cuidado se publicar no github!
 #define WIFI_SSID "TAWLS"
@@ -42,9 +42,9 @@
 #define NUM_PIXELS 25
 #define WS2812_PIN 7
 // Armazenar a cor (Entre 0 e 255 para intensidade)
-int led_r = 5; // Intensidade do vermelho
-int led_g = 5; // Intensidade do verde
-int led_b = 5; // Intensidade do azul
+int led_r = 5;  // Intensidade do vermelho
+int led_g = 5;  // Intensidade do verde
+int led_b = 5;  // Intensidade do azul
 int sled_r = 5; // Intensidade do vermelho salvar
 int sled_g = 5; // Intensidade do verde salvar
 int sled_b = 5; // Intensidade do azul salvar
@@ -57,13 +57,13 @@ int sled_b = 5; // Intensidade do azul salvar
 #define botao_pinA 5 // Botão A = 5, Botão B = 6 , BotãoJoy = 22
 #define botao_pinB 6 // Botão A = 5, Botão B = 6 , BotãoJoy = 22
 // Joysticks
-#define VRY_PIN 26   // Pino do Joystick Y
-#define VRX_PIN 27   // Pino do Joystick X
+#define VRY_PIN 26 // Pino do Joystick Y
+#define VRX_PIN 27 // Pino do Joystick X
 // Buzzer
-#define buzzer 10    // Pino do buzzer A
+#define buzzer 10 // Pino do buzzer A
 
 // Definição dos pinos dos LEDs
-#define LED_PIN CYW43_WL_GPIO_LED_PIN   // GPIO do CI CYW43
+#define LED_PIN CYW43_WL_GPIO_LED_PIN // GPIO do CI CYW43
 
 // Variáveis globais
 static volatile uint32_t last_time = 0; // Armazena o tempo do último evento (em microssegundos)
@@ -79,35 +79,26 @@ int16_t displayY = 0;
 absolute_time_t last_request_time;
 // Variável para os frames da matriz de LEDs
 bool led_buffer[4][NUM_PIXELS] = {
-    {
-        0, 0, 0, 0, 0, 
-        0, 0, 0, 0, 0, 
-        0, 0, 1, 0, 0, 
-        0, 0, 0, 0, 0, 
-        0, 0, 0, 0, 0  
-    },
-    {
-        0, 0, 0, 0, 0, 
-        0, 0, 1, 0, 0, 
-        0, 1, 1, 1, 0, 
-        0, 0, 1, 0, 0, 
-        0, 0, 0, 0, 0  
-    },
-    {
-        0, 0, 0, 0, 0, 
-        0, 1, 1, 1, 0, 
-        0, 1, 1, 1, 0, 
-        0, 1, 1, 1, 0, 
-        0, 0, 0, 0, 0  
-    },
-    {
-        0, 0, 1, 0, 0, 
-        0, 1, 1, 1, 0, 
-        1, 1, 1, 1, 1, 
-        0, 1, 1, 1, 0, 
-        0, 0, 1, 0, 0  
-    }
-};
+    {0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0,
+     0, 0, 1, 0, 0,
+     0, 0, 0, 0, 0,
+     0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0,
+     0, 0, 1, 0, 0,
+     0, 1, 1, 1, 0,
+     0, 0, 1, 0, 0,
+     0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0,
+     0, 1, 1, 1, 0,
+     0, 1, 1, 1, 0,
+     0, 1, 1, 1, 0,
+     0, 0, 0, 0, 0},
+    {0, 0, 1, 0, 0,
+     0, 1, 1, 1, 0,
+     1, 1, 1, 1, 1,
+     0, 1, 1, 1, 0,
+     0, 0, 1, 0, 0}};
 
 // Funções para matriz LEDS
 static inline void put_pixel(uint32_t pixel_grb)
@@ -152,7 +143,7 @@ void user_request(char **request);
 // Função principal
 int main()
 {
-    //Inicializa todos os tipos de bibliotecas stdio padrão presentes que estão ligados ao binário.
+    // Inicializa todos os tipos de bibliotecas stdio padrão presentes que estão ligados ao binário.
     stdio_init_all();
 
     // Inicializar os Pinos GPIO para acionamento dos LEDs da BitDogLab
@@ -165,7 +156,7 @@ int main()
 
     ws2812_program_init(pio, sm, offset, WS2812_PIN, 800000, IS_RGBW);
 
-    //Inicializa a arquitetura do cyw43
+    // Inicializa a arquitetura do cyw43
     while (cyw43_arch_init())
     {
         printf("Falha ao inicializar Wi-Fi\n");
@@ -203,7 +194,7 @@ int main()
         return -1;
     }
 
-    //vincula um PCB (Protocol Control Block) TCP a um endereço IP e porta específicos.
+    // vincula um PCB (Protocol Control Block) TCP a um endereço IP e porta específicos.
     if (tcp_bind(server, IP_ADDR_ANY, 80) != ERR_OK)
     {
         printf("Falha ao associar servidor TCP à porta 80\n");
@@ -223,16 +214,16 @@ int main()
 
     while (true)
     {
-        /* 
-        * Efetuar o processamento exigido pelo cyw43_driver ou pela stack TCP/IP.
-        * Este método deve ser chamado periodicamente a partir do ciclo principal 
-        * quando se utiliza um estilo de sondagem pico_cyw43_arch 
-        */
+        /*
+         * Efetuar o processamento exigido pelo cyw43_driver ou pela stack TCP/IP.
+         * Este método deve ser chamado periodicamente a partir do ciclo principal
+         * quando se utiliza um estilo de sondagem pico_cyw43_arch
+         */
         cyw43_arch_poll(); // Necessário para manter o Wi-Fi ativo
-        sleep_ms(100);      // Reduz o uso da CPU
+        sleep_ms(50);     // Reduz o uso da CPU
     }
 
-    //Desligar a arquitetura CYW43.
+    // Desligar a arquitetura CYW43.
     cyw43_arch_deinit();
     return 0;
 }
@@ -240,16 +231,17 @@ int main()
 // -------------------------------------- Funções ---------------------------------
 
 // Inicializar os Pinos GPIO para acionamento dos LEDs da BitDogLab
-void gpio_led_bitdog(void){
+void gpio_led_bitdog(void)
+{
     // Configuração dos LEDs como saída
     gpio_init(led_BLUE);
     gpio_set_dir(led_BLUE, GPIO_OUT);
     gpio_put(led_BLUE, false);
-    
+
     gpio_init(led_GREEN);
     gpio_set_dir(led_GREEN, GPIO_OUT);
     gpio_put(led_GREEN, false);
-    
+
     gpio_init(led_RED);
     gpio_set_dir(led_RED, GPIO_OUT);
     gpio_put(led_RED, false);
@@ -263,23 +255,29 @@ static err_t tcp_server_accept(void *arg, struct tcp_pcb *newpcb, err_t err)
 }
 
 // Tratamento do request do usuário - digite aqui
-void user_request(char **request){
+void user_request(char **request)
+{
     absolute_time_t now = get_absolute_time();
     int elapsed = absolute_time_diff_us(last_request_time, now) / 1000; // ms
-    if (elapsed < 200) {
+    if (elapsed < 200)
+    {
         // Ignora requisição se for muito cedo
         printf("Request ignorado: intervalo de %d ms insuficiente\n", elapsed);
         return;
     }
     last_request_time = now;
-    if (strstr(*request, "GET /toggle") != NULL) {
+    if (strstr(*request, "GET /toggle") != NULL)
+    {
         // Tratamento do botão ligar/desligar
         printf("Requisição: toggle\n");
-        if(ligado){
+        if (ligado)
+        {
             led_r = 0;
             led_b = 0;
             led_g = 0;
-        }else{
+        }
+        else
+        {
             led_r = sled_r;
             led_g = sled_g;
             led_b = sled_b;
@@ -287,12 +285,14 @@ void user_request(char **request){
         ligado = !ligado;
         set_one_led(led_r, led_g, led_b);
     }
-    else if (strstr(*request, "GET /slider?valor=") != NULL) {
-        // Extrai o valor do slider da URL
-        char *valorStr = strstr(*request, "/slider?valor=") + strlen("/slider?valor=");
+    else if (strstr(*request, "GET /valor?numero=") != NULL)
+    {
+        // Extrai o valor da URL
+        char *valorStr = strstr(*request, "/valor?numero=") + strlen("/valor?numero=");
         int valor = atoi(valorStr);
-        printf("Valor do slider: %d\n", valor);
-        // Aqui você pode adicionar lógica de controle com o valor
+        printf("Valor recebido: %d\n", valor);
+
+        // Lógica de controle com o valor
         sled_r = valor;
         sled_g = valor;
         sled_b = valor;
@@ -301,7 +301,8 @@ void user_request(char **request){
         led_b = sled_b;
         set_one_led(led_r, led_g, led_b);
     }
-    else if (strstr(*request, "GET /seletor?valor=") != NULL) {
+    else if (strstr(*request, "GET /seletor?valor=") != NULL)
+    {
         // Extrai o valor do seletor da URL
         char *valorStr = strstr(*request, "/seletor?valor=") + strlen("/seletor?valor=");
         int valor = atoi(valorStr);
@@ -336,44 +337,48 @@ static err_t tcp_server_recv(void *arg, struct tcp_pcb *tpcb, struct pbuf *p, er
     char html[1024];
 
     // Instruções html do webserver
-snprintf(html, sizeof(html),
-         "HTTP/1.1 200 OK\r\n"
-         "Content-Type: text/html\r\n"
-         "\r\n"
-         "<!DOCTYPE html>\n"
-         "<html>\n"
-         "<head>\n"
-         "<title>CONTROLE INTELIGENTE DE LUZ</title>\n"
-         "<style>\n"
-         "body { background-color: #b5e5fb; font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }\n"
-         "h1 { font-size: 48px; margin-bottom: 30px; }\n"
-         "input[type=range] { width: 80%%; margin: 20px 0; }\n"
-         "select, button { font-size: 24px; padding: 10px 20px; margin: 10px; border-radius: 8px; }\n"
-         "</style>\n"
-         "<script>\n"
-         "function enviarSlider(valor) {\n"
-         "  fetch('/slider?valor=' + valor);\n"
-         "}\n"
-         "function enviarSeletor(valor) {\n"
-         "  fetch('/seletor?valor=' + valor);\n"
-         "}\n"
-         "</script>\n"
-         "</head>\n"
-         "<body>\n"
-         "<h1>CONTROLE INTELIGENTE DE LUZ</h1>\n"
-         "<input type=\"range\" min=\"0\" max=\"255\" oninput=\"enviarSlider(this.value)\" />\n"
-         "<br>\n"
-         "<select onchange=\"enviarSeletor(this.value)\">\n"
-         "  <option value=\"0\">0</option>\n"
-         "  <option value=\"1\">1</option>\n"
-         "  <option value=\"2\">2</option>\n"
-         "  <option value=\"3\">3</option>\n"
-         "</select>\n"
-         "<br>\n"
-         "<form action=\"/toggle\"><button>Ligar/Desligar</button></form>\n"
-         "</body>\n"
-         "</html>\n");
-
+    snprintf(html, sizeof(html),
+             "HTTP/1.1 200 OK\r\n"
+             "Content-Type: text/html\r\n"
+             "\r\n"
+             "<!DOCTYPE html>\n"
+             "<html>\n"
+             "<head>\n"
+             "<title>CONTROLE INTELIGENTE DE LUZ</title>\n"
+             "<style>\n"
+             "body { background-color: #b5e5fb; font-family: Arial, sans-serif; text-align: center; margin-top: 50px; }\n"
+             "h1 { font-size: 48px; margin-bottom: 30px; }\n"
+             "input[type=number], select, button { font-size: 24px; padding: 10px 20px; margin: 10px; border-radius: 8px; }\n"
+             "</style>\n"
+             "<script>\n"
+             "function enviarNumero() {\n"
+             "  var valor = document.getElementById('numero').value;\n"
+             "  if (valor >= 0 && valor <= 255) {\n"
+             "    fetch('/valor?numero=' + valor);\n"
+             "  } else {\n"
+             "    alert('Digite um número entre 0 e 255');\n"
+             "  }\n"
+             "}\n"
+             "function enviarSeletor(valor) {\n"
+             "  fetch('/seletor?valor=' + valor);\n"
+             "}\n"
+             "</script>\n"
+             "</head>\n"
+             "<body>\n"
+             "<h1>CONTROLE INTELIGENTE DE LUZ</h1>\n"
+             "<input id=\"numero\" type=\"number\" min=\"0\" max=\"255\" placeholder=\"Digite um número\" onblur=\"enviarNumero()\" />\n"
+             "<br>\n"
+             "<select onchange=\"enviarSeletor(this.value)\">\n"
+             "  <option value=\"0\">0</option>\n"
+             "  <option value=\"1\">1</option>\n"
+             "  <option value=\"2\">2</option>\n"
+             "  <option value=\"3\">3</option>\n"
+             "  <option value=\"4\">4</option>\n"
+             "</select>\n"
+             "<br>\n"
+             "<form action=\"/toggle\"><button>Ligar/Desligar</button></form>\n"
+             "</body>\n"
+             "</html>\n");
 
     // Escreve dados para envio (mas não os envia imediatamente).
     tcp_write(tpcb, html, strlen(html), TCP_WRITE_FLAG_COPY);
@@ -381,10 +386,10 @@ snprintf(html, sizeof(html),
     // Envia a mensagem
     tcp_output(tpcb);
 
-    //libera memória alocada dinamicamente
+    // libera memória alocada dinamicamente
     free(request);
-    
-    //libera um buffer de pacote (pbuf) que foi alocado anteriormente
+
+    // libera um buffer de pacote (pbuf) que foi alocado anteriormente
     pbuf_free(p);
 
     return ERR_OK;
